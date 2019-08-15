@@ -1,34 +1,26 @@
 ﻿using System.Text.RegularExpressions;
-using Pipliz.Chatting;
-using ChatCommands;
-using Permissions;
-using Server.TerrainGeneration;
-using ChatCommands.Implementations;
+using System.Collections.Generic;
+using Chatting;
+using Chatting.Commands;
+using TerrainGeneration;
 
-namespace ScarabolMods
+namespace ColonyCommands
 {
-  [ModLoader.ModManager]
+
   public class WarpPlaceChatCommand : IChatCommand
   {
-    [ModLoader.ModCallback (ModLoader.EModCallbackType.AfterItemTypesDefined, "scarabol.commands.warpplace.registercommand")]
-    public static void AfterItemTypesDefined ()
-    {
-      CommandManager.RegisterCommand (new WarpPlaceChatCommand ());
-    }
 
-    public bool IsCommand (string chat)
+    public bool TryDoCommand (Players.Player causedBy, string chattext, List<string> splits)
     {
-      return chat.Equals ("/warpplace") || chat.StartsWith ("/warpplace ");
-    }
-
-    public bool TryDoCommand (Players.Player causedBy, string chattext)
-    {
-      if (!PermissionsManager.CheckAndWarnPermission (causedBy, CommandsModEntries.MOD_PREFIX + "warp.place")) {
+	  if (!splits[0].Equals ("/warpplace")) {
+		return false;
+		}
+      if (!PermissionsManager.CheckAndWarnPermission (causedBy, AntiGrief.MOD_PREFIX + "warp.place")) {
         return true;
       }
       var m = Regex.Match (chattext, @"/warpplace (?<px>-?\d+) (?<py>-?\d+)( (?<pz>-?\d+))?");
       if (!m.Success) {
-        Chat.Send (causedBy, "Command didn't match, use /warpplace [x] [y] [z] or /warpplace [x] [z]");
+        Chat.Send(causedBy, "Syntax: /warpplace [x] [y] [z] or /warpplace [x] [z]");
         return true;
       }
       var xCoord = m.Groups ["px"].Value;
@@ -51,10 +43,11 @@ namespace ScarabolMods
           return true;
         }
       } else {
+		TerrainGenerator gen = (TerrainGenerator)ServerManager.TerrainGenerator;
         vz = vy;
-        vy = TerrainGenerator.UsedGenerator.GetHeight (vx, vz);
+		vy = (float)(gen.QueryData((int)vx, (int)vz).Height + 1);
       }
-      Teleport.TeleportTo (causedBy, new UnityEngine.Vector3 (vx, vy, vz));
+	Helper.TeleportPlayer(causedBy, new UnityEngine.Vector3(vx, vy, vz));
       return true;
     }
   }

@@ -1,28 +1,21 @@
-﻿using Pipliz.Chatting;
-using ChatCommands;
+﻿using System.Collections.Generic;
+using Chatting;
+using Chatting.Commands;
 
-namespace ScarabolMods
+namespace ColonyCommands
 {
-  [ModLoader.ModManager]
+
   public class ItemIdChatCommand : IChatCommand
   {
-    [ModLoader.ModCallback (ModLoader.EModCallbackType.AfterItemTypesDefined, "scarabol.commands.itemid.registercommand")]
-    public static void AfterItemTypesDefined ()
-    {
-      CommandManager.RegisterCommand (new ItemIdChatCommand ());
-    }
 
-    public bool IsCommand (string chat)
+    public bool TryDoCommand (Players.Player causedBy, string chattext, List<string> splits)
     {
-      return chat.Equals ("/itemid");
-    }
-
-    public bool TryDoCommand (Players.Player causedBy, string chattext)
-    {
-      var inventory = Inventory.GetInventory (causedBy);
-      var reply = "";
-      for (var slot = 0; slot < inventory.Items.Length; slot++) {
-        var item = inventory.Items [slot];
+	  if (!splits[0].Equals ("/itemid")) {
+		return false;
+	}
+      string reply = "";
+      for (int slot = 0; slot < causedBy.Inventory.Items.Length; slot++) {
+        var item = causedBy.Inventory.Items [slot];
         string typename;
         if (ItemTypes.TryGetType (item.Type, out ItemTypes.ItemType itemType)) {
           typename = itemType.Name;

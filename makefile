@@ -1,75 +1,44 @@
-# important variables
-modname = Commands
-versionmajor = 6.0
-versionminor = 10
-compatible_cs = "0.6.0"
-zip_files_extra = "$(moddir)/announcements.example.json" "$(moddir)/protection-ranges.example.json" "$(moddir)/chatcolors.example.json"
-
-fullname = Colony$(modname)Mod
-moddir = Scarabol/$(modname)
-zipname = $(fullname)-$(version)-mods.zip
+# variables
+modname = ColonyCommands
+zipname = $(modname)-$(version).zip
 dllname = $(modname).dll
+version = $(shell cat modInfo.json | awk '/"version"/ {print $$3}' | head -1 | sed 's/[",]//g')
+zip_files_extra = announcements.example.json protection-ranges.example.json chatcolors.example.json
+build_dir = adrenalynn/$(modname)
+gamedir = /local/games/Steam/steamapps/common/Colony\ Survival
 
-define MODINFO_JSON
-[
-  {
-    "name" : "scarabol.$(shell echo $(modname) | tr A-Z a-z)",
-    "version" : "$(version)",
-    "dllpath" : "$(dllname)",
-    "enabled" : true,
-    "compatibleversions" : [
-      $(compatible_cs)
-    ]
-  }
-]
-endef
-export MODINFO_JSON
+$(dllname): src/*.cs
+	mcs /target:library -nostdlib -r:$(gamedir)/colonyserver_Data/Managed/Assembly-CSharp.dll,$(gamedir)/colonyserver_Data/Managed/UnityEngine.CoreModule.dll,$(gamedir)/colonyserver_Data/Managed/mscorlib.dll,$(gamedir)/colonyserver_Data/Managed/System.dll,$(gamedir)/colonyserver_Data/Managed/System.Core.dll,$(gamedir)/colonyserver_Data/Managed/Steamworks.NET.dll -out:"$(dllname)" -sdk:4 src/*.cs
 
-release_notes = '{"tag_name": "$(version)", "name": "$(fullname) $(version)", "body": "\#\# Changelog\nComing soon. See commits for details...\n\n\#\# Compatible with Colony Survival $(shell echo $(compatible_cs) | sed s/\"//g )\n\n\#\# Installation\n**This mod must be installed on server side!**\n* download the *$(zipname)* or build it from source code, see README for details.\n* place the unzipped *Scarabol* folder inside your *ColonySurvival/gamedata/mods/* directory, like\n*ColonySurvival/gamedata/mods/Scarabol/*"}'
+$(zipname): $(dllname) $(zip_files_extra)
+	$(RM) $(zipname)
+	mkdir -p $(build_dir)
+	cp modInfo.json LICENSE README.md $(dllname) $(zip_files_extra) $(build_dir)/
+	zip -r $(zipname) $(build_dir)
+	$(RM) -r $(build_dir)
 
-version = $(versionmajor).$(versionminor)
-nextversionminor = $(shell expr $(versionminor) + 1)
-nextversion = $(versionmajor).$(nextversionminor)
-#
-# actual build targets
-#
+.PHONY: build default clean all zip install serverlog clientlog
+build: $(dllname)
 
-default:
-	mcs /target:library -r:../../../../colonyserver_Data/Managed/Assembly-CSharp.dll -r:../../Pipliz/APIProvider/APIProvider.dll -r:../../../../colonyserver_Data/Managed/UnityEngine.dll -out:"$(dllname)" -sdk:2 src/*.cs
+default: build
 
 clean:
-	rm -f "$(dllname)"
+	$(RM) $(dllname) $(zipname)
 
-all: clean default
+all: clean default zip
 
-modinfo:
-	echo "$$MODINFO_JSON" > "modInfo.json"
+zip: $(zipname)
 
-zip: default modinfo
-	rm -f "$(zipname)"
-	cd ../../ && zip -r "$(moddir)/$(zipname)" "$(moddir)/modInfo.json" "$(moddir)/$(dllname)" $(zip_files_extra)
+install: build zip
+	$(RM) -r $(gamedir)/gamedata/mods/$(build_dir)
+	unzip $(zipname) -d $(gamedir)/gamedata/mods
 
-release: zip
-	git push
-	git tag "$(version)" && git push --tags
-	make publish
-	make upload
-	make incversion
+checkjson:
+	find . -type f -name "*.json" | while read f; do echo $$f; json_pp <$$f >/dev/null; done
 
-publish:
-	curl --user "scarabol@gmail.com" --data $(release_notes) "https://api.github.com/repos/Scarabol/$(fullname)/releases"
+serverlog:
+	less $(gamedir)/logs/server/$$(ls -1rt $(gamedir)/logs/server | tail -1)
 
-upload:
-	curl --user "scarabol@gmail.com" --data-binary @"$(zipname)" -H "Content-Type: application/octet-stream" "https://uploads.github.com/repos/Scarabol/$(fullname)/releases/$(shell curl -s "https://api.github.com/repos/Scarabol/$(fullname)/releases/tags/$(version)" | jq -r '.id')/assets?name=$(shell basename $(zipname))"
-
-incversion:
-	sed -i "s/ $(version) / $(nextversion) /" src/*
-	sed -i "s/versionminor = $(versionminor)/versionminor = $(nextversionminor)/" makefile
-	git add src/* makefile ; git commit -m "increase version to $(nextversion)"
-
-client: default
-	cd ../../../../ && ./colonyclient.x86_64
-
-server: default
-	cd ../../../../ && ./colonyserver.x86_64
+clientlog:
+	less $(gamedir)/logs/client/$$(ls -1rt $(gamedir)/logs/client | tail -1)
 

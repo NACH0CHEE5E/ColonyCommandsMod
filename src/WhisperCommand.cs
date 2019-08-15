@@ -1,26 +1,20 @@
 ﻿using System.Text.RegularExpressions;
-using Pipliz.Chatting;
-using ChatCommands;
+using System.Collections.Generic;
+using Chatting;
+using Chatting.Commands;
 
-namespace ScarabolMods
+namespace ColonyCommands
 {
-  [ModLoader.ModManager]
+
   public class WhisperChatCommand : IChatCommand
   {
-    [ModLoader.ModCallback (ModLoader.EModCallbackType.AfterItemTypesDefined, "scarabol.commands.whisper.registercommand")]
-    public static void AfterItemTypesDefined ()
-    {
-      CommandManager.RegisterCommand (new WhisperChatCommand ());
-    }
 
-    public bool IsCommand (string chat)
+    public bool TryDoCommand (Players.Player causedBy, string chattext, List<string> splits)
     {
-      return chat.Equals ("/w") || chat.StartsWith ("/w ") || chat.Equals ("/whisper") || chat.StartsWith ("/whisper ");
-    }
-
-    public bool TryDoCommand (Players.Player causedBy, string chattext)
-    {
-      var m = Regex.Match (chattext, @"/((w)|(whisper)) (?<targetplayername>['].+?[']|[^ ]+) (?<message>.+)");
+	  if (!splits[0].Equals ("/w") && !splits[0].Equals ("/whisper")) {
+		return false;
+		}
+      var m = Regex.Match (chattext, @"/((w)|(whisper)) (?<targetplayername>['].+[']|[^ ]+) (?<message>.+)");
       if (!m.Success) {
         Chat.Send (causedBy, "Command didn't match, use /w [targetplayername] [message] or /whisper [targetplayername] [message]");
         return true;

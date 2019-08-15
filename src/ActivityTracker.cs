@@ -1,10 +1,11 @@
 ﻿using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using Pipliz;
 using Pipliz.JSON;
 
-namespace ScarabolMods
+namespace ColonyCommands
 {
   [ModLoader.ModManager]
   public static class ActivityTracker
@@ -27,7 +28,7 @@ namespace ScarabolMods
     public static void OnPlayerConnectedLate (Players.Player player)
     {
       var now = DateTime.Now.ToString ();
-      var stats = GetOrCreateStats (player.IDString);
+      var stats = GetOrCreateStats (player.ID.ToStringReadable());
       stats.lastSeen = now;
     }
 
@@ -35,7 +36,7 @@ namespace ScarabolMods
     public static void OnPlayerDisconnected (Players.Player player)
     {
       var now = DateTime.Now;
-      var stats = GetOrCreateStats (player.IDString);
+      var stats = GetOrCreateStats (player.ID.ToStringReadable());
       stats.secondsPlayed += (long)now.Subtract (DateTime.Parse (stats.lastSeen)).TotalSeconds;
       stats.lastSeen = now.ToString ();
     }
@@ -46,15 +47,15 @@ namespace ScarabolMods
       var now = DateTime.Now;
       for (var c = 0; c < Players.CountConnected; c++) {
         var player = Players.GetConnectedByIndex (c);
-        var stats = GetOrCreateStats (player.IDString);
+        var stats = GetOrCreateStats (player.ID.ToStringReadable());
         stats.secondsPlayed += (long)now.Subtract (DateTime.Parse (stats.lastSeen)).TotalSeconds;
         stats.lastSeen = now.ToString ();
       }
       Save ();
     }
 
-    [ModLoader.ModCallback (ModLoader.EModCallbackType.OnQuitLate, "scarabol.commands.activitytracker.onquitlate")]
-    public static void OnQuitLate ()
+    [ModLoader.ModCallback (ModLoader.EModCallbackType.OnQuit, "scarabol.commands.activitytracker.onquit")]
+    public static void OnQuit()
     {
       Save ();
     }
@@ -85,19 +86,23 @@ namespace ScarabolMods
     }
 
     static void Save ()
-    {
-      try {
-        JSONNode JsonPlayerStats = new JSONNode ();
-        foreach (var playerStats in PlayerStats) {
-          JsonPlayerStats.SetAs (playerStats.Key, (JSONNode)playerStats.Value);
-        }
-        JSONNode JsonActivity = new JSONNode ();
-        JsonActivity.SetAs ("stats", JsonPlayerStats);
-        JSON.Serialize (ConfigFilepath, JsonActivity, 3);
-      } catch (Exception exception) {
-        Log.WriteError ($"Exception while saving player activity; {exception.Message}");
-      }
-    }
+	{
+		if (PlayerStats.Count == 0) {
+			Log.Write("No player statistics found to save");
+			return;
+		}
+		try {
+			JSONNode JsonPlayerStats = new JSONNode ();
+			foreach (var playerStats in PlayerStats) {
+				JsonPlayerStats.SetAs (playerStats.Key, (JSONNode)playerStats.Value);
+			}
+			JSONNode JsonActivity = new JSONNode ();
+			JsonActivity.SetAs ("stats", JsonPlayerStats);
+			JSON.Serialize (ConfigFilepath, JsonActivity, 3);
+		} catch (Exception exception) {
+			Log.WriteError ($"Exception while saving player activity; {exception.Message}");
+		}
+	}
 
     public static StatsDataEntry GetOrCreateStats (string playerId)
     {
@@ -118,18 +123,24 @@ namespace ScarabolMods
       return stats.lastSeen;
     }
 
-    public static Dictionary<Players.Player, long> GetInactivePlayers (int days)
-    {
-      var result = new Dictionary<Players.Player, long> ();
-      foreach (var player in Players.PlayerDatabase.ValuesAsList) {
-        StatsDataEntry stats = GetOrCreateStats (player.IDString);
-        double inactiveDays = DateTime.Now.Subtract (DateTime.Parse (stats.lastSeen)).TotalDays;
-        if (inactiveDays >= days) {
-          result.Add (player, (long)inactiveDays);
-        }
-      }
-      return result;
-    }
+	public static Dictionary<Players.Player, int> GetInactivePlayers(int days)
+	{
+		var result = new Dictionary<Players.Player, int>();
+		foreach (Players.Player player in Players.PlayerDatabase.Values) {
+			StatsDataEntry stats = GetOrCreateStats(player.ID.ToStringReadable());
+			DateTime lastSeen = DateTime.Now;
+			try {
+				lastSeen = DateTime.Parse(stats.lastSeen);
+			} catch (Exception exception) {
+				Log.WriteError ($"Unable to parse lastSeen '{stats.lastSeen}': {exception.Message}");
+			}
+			double inactiveDays = DateTime.Now.Subtract(lastSeen).TotalDays;
+			if (inactiveDays >= days) {
+				result.Add(player, (int)inactiveDays);
+			}
+		}
+		return result;
+	}
 
     public class StatsDataEntry
     {

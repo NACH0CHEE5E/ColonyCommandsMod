@@ -1,33 +1,25 @@
 ﻿using System.Text.RegularExpressions;
-using Pipliz.Chatting;
-using ChatCommands;
-using Permissions;
-using ChatCommands.Implementations;
+using System.Collections.Generic;
+using Chatting;
+using Chatting.Commands;
 
-namespace ScarabolMods
+namespace ColonyCommands
 {
-  [ModLoader.ModManager]
+
   public class WarpChatCommand : IChatCommand
   {
-    [ModLoader.ModCallback (ModLoader.EModCallbackType.AfterItemTypesDefined, "scarabol.commands.warp.registercommand")]
-    public static void AfterItemTypesDefined ()
-    {
-      CommandManager.RegisterCommand (new WarpChatCommand ());
-    }
 
-    public bool IsCommand (string chat)
+    public bool TryDoCommand (Players.Player causedBy, string chattext, List<string> splits)
     {
-      return chat.Equals ("/warp") || chat.StartsWith ("/warp ");
-    }
-
-    public bool TryDoCommand (Players.Player causedBy, string chattext)
-    {
-      if (!PermissionsManager.HasPermission (causedBy, CommandsModEntries.MOD_PREFIX + "warp.player") &&
-          !PermissionsManager.HasPermission (causedBy, CommandsModEntries.MOD_PREFIX + "warp.self")) {
+	  if (!splits[0].Equals ("/warp")) {
+		return false;
+	}
+      if (!PermissionsManager.HasPermission (causedBy, AntiGrief.MOD_PREFIX + "warp.player") &&
+          !PermissionsManager.HasPermission (causedBy, AntiGrief.MOD_PREFIX + "warp.self")) {
         Chat.Send (causedBy, "<color=red>You don't have permission to warp</color>");
         return true;
       }
-      var m = Regex.Match (chattext, @"/warp (?<targetplayername>['].+?[']|[^ ]+)( (?<teleportplayername>['].+?[']|[^ ]+))?");
+      var m = Regex.Match (chattext, @"/warp (?<targetplayername>['].+[']|[^ ]+)( (?<teleportplayername>['].+[']|[^ ]+))?");
       if (!m.Success) {
         Chat.Send (causedBy, "Command didn't match, use /warp [targetplayername] or /warp [targetplayername] [teleportplayername]");
         return true;
@@ -42,7 +34,7 @@ namespace ScarabolMods
       var teleportPlayer = causedBy;
       var teleportPlayerName = m.Groups ["teleportplayername"].Value;
       if (teleportPlayerName.Length > 0) {
-        if (PermissionsManager.HasPermission (causedBy, CommandsModEntries.MOD_PREFIX + "warp.player")) {
+        if (PermissionsManager.HasPermission (causedBy, AntiGrief.MOD_PREFIX + "warp.player")) {
           if (!PlayerHelper.TryGetPlayer (teleportPlayerName, out teleportPlayer, out error)) {
             Chat.Send (causedBy, $"Could not find teleport player '{teleportPlayerName}'; {error}");
             return true;

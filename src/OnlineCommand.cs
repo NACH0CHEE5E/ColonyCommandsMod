@@ -1,33 +1,36 @@
-﻿using Pipliz.Chatting;
-using ChatCommands;
+﻿using System.Collections.Generic;
+using Chatting;
+using Chatting.Commands;
 
-namespace ScarabolMods
+namespace ColonyCommands
 {
-  [ModLoader.ModManager]
+
   public class OnlineChatCommand : IChatCommand
   {
-    [ModLoader.ModCallback (ModLoader.EModCallbackType.AfterItemTypesDefined, "scarabol.commands.online.registercommand")]
-    public static void AfterItemTypesDefined ()
-    {
-      CommandManager.RegisterCommand (new OnlineChatCommand ());
-    }
 
-    public bool IsCommand (string chat)
+    public bool TryDoCommand (Players.Player causedBy, string chattext, List<string> splits)
     {
-      return chat.Equals ("/online");
-    }
+	  if (!splits[0].Equals("/online")) {
+		return false;
+		}
+      string msg = "";
+      bool idMode = false;
+      if (chattext.Equals("/online id")) {
+        idMode = true;
+      }
 
-    public bool TryDoCommand (Players.Player causedBy, string chattext)
-    {
-      var msg = "";
       for (var c = 0; c < Players.CountConnected; c++) {
         Players.Player player = Players.GetConnectedByIndex (c);
         msg += player.Name;
+        if (idMode) {
+          msg += ": #" + player.ID.steamID.GetHashCode();
+        }
         if (c < Players.CountConnected - 1) {
           msg += ", ";
         }
       }
       msg += $"\nTotal {Players.CountConnected} players online";
+
       Chat.Send (causedBy, msg);
       return true;
     }

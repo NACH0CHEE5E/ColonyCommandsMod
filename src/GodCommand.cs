@@ -1,34 +1,27 @@
-﻿using Pipliz.Chatting;
-using ChatCommands;
-using Permissions;
+﻿using System.Collections.Generic;
+using Chatting;
+using Chatting.Commands;
 
-namespace ScarabolMods
+namespace ColonyCommands
 {
-  [ModLoader.ModManager]
+
   public class GodChatCommand : IChatCommand
   {
-    [ModLoader.ModCallback (ModLoader.EModCallbackType.AfterItemTypesDefined, "scarabol.commands.god.registercommand")]
-    public static void AfterItemTypesDefined ()
-    {
-      CommandManager.RegisterCommand (new GodChatCommand ());
-    }
 
-    public bool IsCommand (string chat)
+    public bool TryDoCommand (Players.Player causedBy, string chattext, List<string> splits)
     {
-      return chat.Equals ("/god");
-    }
-
-    public bool TryDoCommand (Players.Player causedBy, string chattext)
-    {
-      if (!PermissionsManager.CheckAndWarnPermission (causedBy, CommandsModEntries.MOD_PREFIX + "god")) {
+	  if (!splits[0].Equals ("/god")) {
+		return false;
+	}
+      if (!PermissionsManager.CheckAndWarnPermission (causedBy, AntiGrief.MOD_PREFIX + "god")) {
         return true;
       }
       if (PermissionsManager.HasPermission (causedBy, "")) {
         PermissionsManager.RemovePermissionOfUser (causedBy, causedBy, "");
-        Chat.SendToAll ($"{causedBy.Name} is a cockroach now!");
+        Chat.SendToConnected ($"{causedBy.Name} is a cockroach now!");
       } else {
         PermissionsManager.AddPermissionToUser (causedBy, causedBy, "");
-        Chat.SendToAll ($"{causedBy.Name} is now godlike!");
+        Chat.SendToConnected ($"{causedBy.Name} is now godlike!");
       }
       return true;
     }

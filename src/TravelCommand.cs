@@ -1,147 +1,128 @@
 ﻿using System.IO;
 using System.Collections.Generic;
 using Pipliz;
-using Pipliz.Chatting;
 using Pipliz.JSON;
-using ChatCommands;
-using Permissions;
-using ChatCommands.Implementations;
+using Chatting;
+using Chatting.Commands;
 
-namespace ScarabolMods
+namespace ColonyCommands
 {
-  [ModLoader.ModManager]
-  public class TravelChatCommand : IChatCommand
-  {
-    [ModLoader.ModCallback (ModLoader.EModCallbackType.AfterItemTypesDefined, "scarabol.commands.travel.registercommand")]
-    public static void AfterItemTypesDefined ()
-    {
-      CommandManager.RegisterCommand (new TravelChatCommand ());
-      CommandManager.RegisterCommand (new TravelHereChatCommand ());
-      CommandManager.RegisterCommand (new TravelThereChatCommand ());
-      CommandManager.RegisterCommand (new TravelRemoveChatCommand ());
-    }
+	public class TravelChatCommand : IChatCommand
+	{
 
-    [ModLoader.ModCallback (ModLoader.EModCallbackType.AfterWorldLoad, "scarabol.commands.travel.loadwaypoints")]
-    public static void AfterWorldLoad ()
-    {
-      WaypointManager.Load ();
-    }
+		public bool TryDoCommand(Players.Player causedBy, string chattext, List<string> splits)
+		{
+			if (!splits[0].Equals("/travel")) {
+				return false;
+			}
+			foreach (var TravelPath in WaypointManager.travelPaths) {
+				if (Pipliz.Math.ManhattanDistance(causedBy.VoxelPosition, TravelPath.Key) < 3) {
+					Teleport.TeleportTo(causedBy, TravelPath.Value.Vector);
+					return true;
+				}
+			}
+			Chat.Send(causedBy, "You must be close to a waypoint to travel");
+			return true;
+		}
+	}
 
-    public bool IsCommand (string chat)
-    {
-      return chat.Equals ("/travel");
-    }
+	public class TravelHereChatCommand : IChatCommand
+	{
+		public bool TryDoCommand(Players.Player causedBy, string chattext, List<string> splits)
+		{
+			if (!splits[0].Equals("/travelhere")) {
+				return false;
+			}
+			if (!PermissionsManager.CheckAndWarnPermission(causedBy, AntiGrief.MOD_PREFIX + "travelpaths")) {
+				return true;
+			}
+			WaypointManager.startWaypoints.Add(causedBy, causedBy.VoxelPosition);
+			Chat.Send(causedBy, $"Added start waypoint at {causedBy.VoxelPosition}, use /travelthere to set the endpoint");
+			return true;
+		}
+	}
 
-    public bool TryDoCommand (Players.Player causedBy, string chattext)
-    {
-      foreach (var TravelPath in WaypointManager.travelPaths) {
-        if (Pipliz.Math.ManhattanDistance (causedBy.VoxelPosition, TravelPath.Key) < 3) {
-          Teleport.TeleportTo (causedBy, TravelPath.Value.Vector);
-          return true;
-        }
-      }
-      Chat.Send (causedBy, "You must be close to a waypoint to travel");
-      return true;
-    }
-  }
+	public class TravelThereChatCommand : IChatCommand
+	{
 
-  public class TravelHereChatCommand : IChatCommand
-  {
-    public bool IsCommand (string chat)
-    {
-      return chat.Equals ("/travelhere");
-    }
+		public bool TryDoCommand(Players.Player causedBy, string chattext, List<string> splits)
+		{
+			if (!splits[0].Equals("/travelthere")) {
+				return false;
+			}
+			if (!PermissionsManager.CheckAndWarnPermission(causedBy, AntiGrief.MOD_PREFIX + "travelpaths")) {
+				return true;
+			}
+			Vector3Int StartWaypoint;
+			if (WaypointManager.startWaypoints.TryGetValue(causedBy, out StartWaypoint)) {
+				WaypointManager.travelPaths.Add(StartWaypoint, causedBy.VoxelPosition);
+				WaypointManager.startWaypoints.Remove(causedBy);
+				WaypointManager.Save();
+				Chat.Send(causedBy, $"Saved travel path from {StartWaypoint} to {causedBy.VoxelPosition}");
+			} else {
+				Chat.Send(causedBy, "You have no start waypoint set, use /travelhere at start point");
+			}
+			return true;
+		}
+	}
 
-    public bool TryDoCommand (Players.Player causedBy, string chattext)
-    {
-      if (!PermissionsManager.CheckAndWarnPermission (causedBy, CommandsModEntries.MOD_PREFIX + "travelpaths")) {
-        return true;
-      }
-      WaypointManager.startWaypoints.Add (causedBy, causedBy.VoxelPosition);
-      Chat.Send (causedBy, $"Added start waypoint at {causedBy.VoxelPosition}, use /travelthere to set the endpoint");
-      return true;
-    }
-  }
+	public class TravelRemoveChatCommand : IChatCommand
+	{
 
-  public class TravelThereChatCommand : IChatCommand
-  {
-    public bool IsCommand (string chat)
-    {
-      return chat.Equals ("/travelthere");
-    }
+		public bool TryDoCommand(Players.Player causedBy, string chattext, List<string> splits)
+		{
+			if (!splits[0].Equals("/travelremove")) {
+				return false;
+			}
+			if (!PermissionsManager.CheckAndWarnPermission(causedBy, AntiGrief.MOD_PREFIX + "travelpaths")) {
+				return true;
+			}
+			if (WaypointManager.travelPaths.Remove(causedBy.VoxelPosition)) {
+				WaypointManager.Save();
+				Chat.Send(causedBy, "Travel path removed");
+			} else {
+				Chat.Send(causedBy, "No start waypoint found at your position");
+			}
+			return true;
+		}
+	}
 
-    public bool TryDoCommand (Players.Player causedBy, string chattext)
-    {
-      if (!PermissionsManager.CheckAndWarnPermission (causedBy, CommandsModEntries.MOD_PREFIX + "travelpaths")) {
-        return true;
-      }
-      Vector3Int StartWaypoint;
-      if (WaypointManager.startWaypoints.TryGetValue (causedBy, out StartWaypoint)) {
-        WaypointManager.travelPaths.Add (StartWaypoint, causedBy.VoxelPosition);
-        WaypointManager.startWaypoints.Remove (causedBy);
-        WaypointManager.Save ();
-        Chat.Send (causedBy, $"Saved travel path from {StartWaypoint} to {causedBy.VoxelPosition}");
-      } else {
-        Chat.Send (causedBy, "You have no start waypoint set, use /travelhere at start point");
-      }
-      return true;
-    }
-  }
+	public static class WaypointManager
+	{
+		public static Dictionary<Vector3Int, Vector3Int> travelPaths = new Dictionary<Vector3Int, Vector3Int>();
+		public static Dictionary<Players.Player, Vector3Int> startWaypoints = new Dictionary<Players.Player, Vector3Int>();
 
-  public class TravelRemoveChatCommand : IChatCommand
-  {
-    public bool IsCommand (string chat)
-    {
-      return chat.Equals ("/travelremove");
-    }
+		static string ConfigFilepath {
+			get {
+				return Path.Combine(Path.Combine("gamedata", "savegames"), Path.Combine(ServerManager.WorldName, "travelpaths.json"));
+			}
+		}
 
-    public bool TryDoCommand (Players.Player causedBy, string chattext)
-    {
-      if (!PermissionsManager.CheckAndWarnPermission (causedBy, CommandsModEntries.MOD_PREFIX + "travelpaths")) {
-        return true;
-      }
-      if (WaypointManager.travelPaths.Remove (causedBy.VoxelPosition)) {
-        WaypointManager.Save ();
-        Chat.Send (causedBy, "Travel path removed");
-      } else {
-        Chat.Send (causedBy, "No start waypoint found at your position");
-      }
-      return true;
-    }
-  }
+		public static void Load()
+		{
+			JSONNode JsonWaypoints;
+			if (JSON.Deserialize(ConfigFilepath, out JsonWaypoints, false)) {
+				travelPaths.Clear();
+				foreach (var JsonWaypoint in JsonWaypoints.LoopArray()) {
+					travelPaths.Add((Vector3Int)JsonWaypoint["source"], (Vector3Int)JsonWaypoint["target"]);
+				}
+				Log.Write($"Loaded {WaypointManager.travelPaths.Count} travel paths from file");
+			} else {
+				Log.Write($"No travel paths loaded. File {ConfigFilepath} not found");
+			}
+		}
 
-  public static class WaypointManager
-  {
-    public static Dictionary<Vector3Int, Vector3Int> travelPaths = new Dictionary<Vector3Int, Vector3Int> ();
-    public static Dictionary<Players.Player, Vector3Int> startWaypoints = new Dictionary<Players.Player, Vector3Int> ();
-
-    static string ConfigFilepath {
-      get {
-        return Path.Combine (Path.Combine ("gamedata", "savegames"), Path.Combine (ServerManager.WorldName, "travelpaths.json"));
-      }
-    }
-
-    public static void Load ()
-    {
-      JSONNode JsonWaypoints;
-      if (JSON.Deserialize (ConfigFilepath, out JsonWaypoints, false)) {
-        travelPaths.Clear ();
-        foreach (var JsonWaypoint in JsonWaypoints.LoopArray ()) {
-          travelPaths.Add ((Vector3Int)JsonWaypoint ["source"], (Vector3Int)JsonWaypoint ["target"]);
-        }
-        Log.Write ($"Loaded {WaypointManager.travelPaths.Count} travel paths from file");
-      } else {
-        Log.Write ($"No travel paths loaded. File {ConfigFilepath} not found");
-      }
-    }
-
-    public static void Save ()
-    {
-      JSONNode JsonWaypoints = new JSONNode (NodeType.Array);
-      foreach (var Waypoint in travelPaths) {
-        JsonWaypoints.AddToArray (new JSONNode ().SetAs ("source", (JSONNode)Waypoint.Key).SetAs ("target", (JSONNode)Waypoint.Value));
-      }
-      JSON.Serialize (ConfigFilepath, JsonWaypoints, 1);
-    }
-  }
+		public static void Save()
+		{
+			if (travelPaths.Count == 0) {
+				return;
+			}
+			JSONNode JsonWaypoints = new JSONNode(NodeType.Array);
+			foreach (var Waypoint in travelPaths) {
+				JsonWaypoints.AddToArray(new JSONNode().SetAs("source", (JSONNode)Waypoint.Key).SetAs("target", (JSONNode)Waypoint.Value));
+			}
+			JSON.Serialize(ConfigFilepath, JsonWaypoints, 1);
+		}
+	}
 }
+

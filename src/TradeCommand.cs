@@ -1,27 +1,22 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
-using Pipliz.Chatting;
-using ChatCommands;
+using Pipliz;
+using Chatting;
+using Chatting.Commands;
 
-namespace ScarabolMods
+namespace ColonyCommands
 {
-  [ModLoader.ModManager]
+
   public class TradeChatCommand : IChatCommand
   {
-    [ModLoader.ModCallback (ModLoader.EModCallbackType.AfterItemTypesDefined, "scarabol.commands.trade.registercommand")]
-    public static void AfterItemTypesDefined ()
-    {
-      CommandManager.RegisterCommand (new TradeChatCommand ());
-    }
 
-    public bool IsCommand (string chat)
+    public bool TryDoCommand (Players.Player causedBy, string chattext, List<string> splits)
     {
-      return chat.Equals ("/trade") || chat.StartsWith ("/trade ");
-    }
-
-    public bool TryDoCommand (Players.Player causedBy, string chattext)
-    {
-      var m = Regex.Match (chattext, @"/trade (?<playername>['].+?[']|[^ ]+) (?<material>.+) (?<amount>\d+)");
+	  if (!splits[0].Equals ("/trade")) {
+		return false;
+		}
+      var m = Regex.Match (chattext, @"/trade (?<playername>['].+[']|[^ ]+) (?<material>.+) (?<amount>\d+)");
       if (!m.Success) {
         Chat.Send (causedBy, "Command didn't match, use /trade [playername] [material] [amount]");
         return true;
@@ -56,19 +51,19 @@ namespace ScarabolMods
         Chat.Send (causedBy, $"Could not find target player '{targetPlayerName}'; {error}");
         return true;
       }
-      Stockpile sourceStockpile;
-      Stockpile targetStockpile;
-      if (Stockpile.TryGetStockpile (causedBy, out sourceStockpile) && Stockpile.TryGetStockpile (targetPlayer, out targetStockpile)) {
-        InventoryItem tradeItem = new InventoryItem (itemType, amount);
-        if (sourceStockpile.TryRemove (tradeItem)) {
-          targetStockpile.Add (tradeItem);
-          Chat.Send (causedBy, $"Send {amount} x {itemTypeName} to '{targetPlayer.Name}'");
-          Chat.Send (targetPlayer, $"Received {amount} x {itemTypeName} from '{causedBy.Name}'");
-        } else {
-          Chat.Send (causedBy, "You don't have enough items");
-        }
+	  Colony sourceColony = causedBy.ActiveColony;
+	  Colony targetColony = targetPlayer.ActiveColony;
+      if (sourceColony == null || targetColony == null) {
+        Chat.Send (causedBy, "Coud not get active colony for both players");
+        return false;
+      }
+      InventoryItem tradeItem = new InventoryItem (itemType, amount);
+      if (sourceColony.Stockpile.TryRemove (tradeItem)) {
+        targetColony.Stockpile.Add (tradeItem);
+        Chat.Send (causedBy, $"Send {amount} x {itemTypeName} to '{targetPlayer.Name}'");
+        Chat.Send (targetPlayer, $"Received {amount} x {itemTypeName} from '{causedBy.Name}'");
       } else {
-        Chat.Send (causedBy, "Could not get stockpile for both players");
+        Chat.Send (causedBy, "You don't have enough items");
       }
       return true;
     }

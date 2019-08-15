@@ -1,53 +1,38 @@
-﻿using Pipliz;
-using Pipliz.Chatting;
-using ChatCommands;
-using Permissions;
+﻿using System.Collections.Generic;
+using Pipliz;
+using Chatting;
+using Chatting.Commands;
 
-namespace ScarabolMods
+namespace ColonyCommands
 {
-  [ModLoader.ModManager]
+
   public class NoFlightChatCommand : IChatCommand
   {
-    [ModLoader.ModCallback (ModLoader.EModCallbackType.AfterItemTypesDefined, "scarabol.commands.noflight.registercommand")]
-    public static void AfterItemTypesDefined ()
-    {
-      CommandManager.RegisterCommand (new NoFlightChatCommand ());
-    }
 
-    public bool IsCommand (string chat)
+    public bool TryDoCommand (Players.Player causedBy, string chattext, List<string> splits)
     {
-      return chat.Equals ("/noflight");
-    }
-
-    public bool TryDoCommand (Players.Player causedBy, string chattext)
-    {
-      if (!PermissionsManager.CheckAndWarnPermission (causedBy, CommandsModEntries.MOD_PREFIX + "noflight")) {
+	  if (!splits[0].Equals("/noflight")) {
+		return false;
+		}
+      if (!PermissionsManager.CheckAndWarnPermission (causedBy, AntiGrief.MOD_PREFIX + "noflight")) {
         return true;
       }
-      foreach (var player in Players.PlayerDatabase.ValuesAsList) {
-        var values = player.GetTempValues ();
-        if (!PermissionsManager.HasPermission (player, "setflight") && values.Remove ("pipliz.setflight")) {
-          player.SetTempValues (values);
-          player.SavegameNode.RemoveChild ("pipliz.setflight");
-          player.ShouldSave = true;
-          if (player.IsConnected) {
+      foreach (var player in Players.PlayerDatabase.Values) {
+        var flightState = player.GetTempValues(false).GetOrDefault("pipliz.setflight", false);
+        if (!PermissionsManager.HasPermission (player, "setflight") && flightState) {
+          player.GetTempValues(true).Set("pipliz.setflight", false);
+          // player.ShouldSave = true;
+          if (player.ConnectionState == Players.EConnectionState.Connected) {
             Chat.Send (player, "Please don't fly");
             Players.Disconnect (player);
           } else {
-            Log.Write ($"Removed flight state from offline player {player.IDString}");
+            Log.Write ($"Removed flight state from offline player {player.ID.ToStringReadable()}");
           }
         }
       }
       return true;
     }
 
-    public static void SendFlightState (Players.Player player, bool state)
-    {
-      using (ByteBuilder byteBuilder = ByteBuilder.Get ()) {
-        byteBuilder.Write (30);
-        byteBuilder.Write (state);
-        NetworkWrapper.Send (byteBuilder.ToArray (), player, NetworkMessageReliability.ReliableWithBuffering);
-      }
-    }
   }
 }
+

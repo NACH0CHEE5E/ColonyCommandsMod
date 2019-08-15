@@ -1,32 +1,29 @@
-﻿using Pipliz.Chatting;
-using ChatCommands;
+﻿using System.Collections.Generic;
+using Chatting;
+using Chatting.Commands;
 
-namespace ScarabolMods
+namespace ColonyCommands
 {
-  [ModLoader.ModManager]
-  public class ServerPopCommand : IChatCommand
-  {
-    [ModLoader.ModCallback (ModLoader.EModCallbackType.AfterItemTypesDefined, "scarabol.commands.serverpopcommand.registercommand")]
-    public static void AfterItemTypesDefined ()
-    {
-      CommandManager.RegisterCommand (new ServerPopCommand ());
-    }
 
-    public bool IsCommand (string chat)
-    {
-      return chat.Equals ("/serverpop");
-    }
+	public class ServerPopCommand : IChatCommand
+	{
 
-    public bool TryDoCommand (Players.Player causedBy, string chattext)
-    {
-      var allPlayers = Players.PlayerDatabase.Count;
-      var onlinePlayers = Players.CountConnected;
-      var allFollower = 0;
-      Colony.collection.ForeachValue (colony => allFollower += colony.FollowerCount);
-      var allMonsters = Server.Monsters.MonsterTracker.MonstersTotal;
-      var allUnits = allPlayers + allFollower + allMonsters;
-      Chat.Send (causedBy, $"Server Population: {allUnits}, Players: {allPlayers}, Online: {onlinePlayers}, Colonists: {allFollower}, Monsters: {allMonsters}");
-      return true;
-    }
-  }
+		public bool TryDoCommand(Players.Player causedBy, string chattext, List<string> splits)
+		{
+			if (!splits[0].Equals("/serverpop")) {
+				return false;
+			}
+			var allPlayers = Players.PlayerDatabase.Count;
+			var onlinePlayers = Players.CountConnected;
+			var allFollower = 0;
+			foreach (Colony colony in ServerManager.ColonyTracker.ColoniesByID.Values) {
+				allFollower += colony.FollowerCount;
+			}
+			var allMonsters = Monsters.MonsterTracker.MonstersTotal;
+			var allUnits = allPlayers + allFollower + allMonsters;
+			Chat.Send(causedBy, $"Server Population: {allUnits}, Players: {allPlayers}, Online: {onlinePlayers}, Colonists: {allFollower}, Monsters: {allMonsters}");
+			return true;
+		}
+	}
 }
+

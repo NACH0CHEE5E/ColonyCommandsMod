@@ -1,29 +1,21 @@
 ﻿using System.Collections.Generic;
 using Pipliz;
-using Pipliz.Chatting;
-using ChatCommands;
-using Permissions;
-using BlockTypes.Builtin;
+using Chatting;
+using Chatting.Commands;
+using BlockTypes;
 
-namespace ScarabolMods
+namespace ColonyCommands
 {
-  [ModLoader.ModManager]
+
   public class DrainChatCommand : IChatCommand
   {
-    [ModLoader.ModCallback (ModLoader.EModCallbackType.AfterItemTypesDefined, "scarabol.commands.drain.registercommand")]
-    public static void AfterItemTypesDefined ()
-    {
-      CommandManager.RegisterCommand (new DrainChatCommand ());
-    }
 
-    public bool IsCommand (string chat)
+    public bool TryDoCommand (Players.Player causedBy, string chattext, List<string> splits)
     {
-      return chat.Equals ("/drain");
-    }
-
-    public bool TryDoCommand (Players.Player causedBy, string chattext)
-    {
-      if (!PermissionsManager.CheckAndWarnPermission (causedBy, CommandsModEntries.MOD_PREFIX + "drain")) {
+	  if (!splits[0].Equals ("/drain")) {
+		return false;
+	}
+      if (!PermissionsManager.CheckAndWarnPermission (causedBy, AntiGrief.MOD_PREFIX + "drain")) {
         return true;
       }
       List<Vector3Int> toCheckWaterBlocks = new List<Vector3Int> () { };
@@ -35,7 +27,7 @@ namespace ScarabolMods
         ushort actualType;
         if (!World.TryGetTypeAt (toCheckPosition, out actualType)) {
           Chat.Send (causedBy, $"Could not get the item type at {toCheckPosition}");
-        } else if (actualType == BuiltinBlocks.Water) {
+        } else if (actualType == BuiltinBlocks.Indices.water) {
           toCheckWaterBlocks.Add (toCheckPosition);
         }
       }
@@ -54,8 +46,8 @@ namespace ScarabolMods
             }) {
           Vector3Int absCheck = currentOrigin + toCheckPosition;
           ushort type;
-          if (World.TryGetTypeAt (absCheck, out type) && type == BuiltinBlocks.Water) {
-            ServerManager.TryChangeBlock (absCheck, BuiltinBlocks.LeavesTemperate);
+          if (World.TryGetTypeAt (absCheck, out type) && type == BuiltinBlocks.Indices.water) {
+            ServerManager.TryChangeBlock (absCheck, BuiltinBlocks.Indices.leavestemperate);
             toCheckWaterBlocks.Add (absCheck);
             toCleanBlocks.Add (absCheck);
           }
@@ -63,10 +55,10 @@ namespace ScarabolMods
       }
       Chat.Send (causedBy, $"Replaced {toCleanBlocks.Count} water blocks. Start cleaning up...");
       foreach (Vector3Int AbsRemove in toCheckWaterBlocks) {
-        ServerManager.TryChangeBlock (AbsRemove, BuiltinBlocks.Air);
+        ServerManager.TryChangeBlock (AbsRemove, BuiltinBlocks.Indices.air);
       }
       foreach (Vector3Int AbsRemove in toCleanBlocks) {
-        ServerManager.TryChangeBlock (AbsRemove, BuiltinBlocks.Air);
+        ServerManager.TryChangeBlock (AbsRemove, BuiltinBlocks.Indices.air);
       }
       return true;
     }

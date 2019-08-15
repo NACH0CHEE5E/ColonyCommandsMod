@@ -1,57 +1,52 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
-using Pipliz.Chatting;
-using ChatCommands;
-using Permissions;
+using Chatting;
+using Chatting.Commands;
 
-namespace ScarabolMods
+namespace ColonyCommands
 {
-  [ModLoader.ModManager]
-  public class InactiveChatCommand : IChatCommand
-  {
-    [ModLoader.ModCallback (ModLoader.EModCallbackType.AfterItemTypesDefined, "scarabol.commands.inactive.registercommand")]
-    public static void AfterItemTypesDefined ()
-    {
-      CommandManager.RegisterCommand (new InactiveChatCommand ());
-    }
 
-    public bool IsCommand (string chat)
-    {
-      return chat.Equals ("/inactive") || chat.StartsWith ("/inactive ");
-    }
+	public class InactiveChatCommand : IChatCommand
+	{
 
-    public bool TryDoCommand (Players.Player causedBy, string chattext)
-    {
-      if (!PermissionsManager.CheckAndWarnPermission (causedBy, CommandsModEntries.MOD_PREFIX + "inactive")) {
-        return true;
-      }
-      var m = Regex.Match (chattext, @"/inactive (?<days>\d+)");
-      if (!m.Success) {
-        Chat.Send (causedBy, "Command didn't match, use /inactive [days]");
-        return true;
-      }
-      int days = Int32.Parse (m.Groups ["days"].Value);
-      if (days <= 0) {
-        Chat.Send (causedBy, "Command didn't match, days too low");
-        return true;
-      }
-      String resultMsg = "";
-      foreach (var entry in ActivityTracker.GetInactivePlayers (days)) {
-        var player = entry.Key;
-        var inactiveDays = entry.Value;
-        if (BannerTracker.Get (player) != null) {
-          if (resultMsg.Length > 0) {
-            resultMsg += ", ";
-          }
-          resultMsg += $"{player.IDString} ({inactiveDays})";
-        }
-      }
-      if (resultMsg.Length < 1) {
-        resultMsg = "No inactive players found";
-      }
-      Chat.Send (causedBy, resultMsg);
-      return true;
-    }
-  }
+		public bool TryDoCommand(Players.Player causedBy, string chattext, List<string> splits)
+		{
+			if (!splits[0].Equals("/inactive")) {
+				return false;
+				}
+			if (!PermissionsManager.CheckAndWarnPermission(causedBy, AntiGrief.MOD_PREFIX + "inactive")) {
+				return true;
+			}
+			int days;
+			if (splits.Count == 2) {
+				if (!int.TryParse(splits[1], out days)) {
+					Chat.Send(causedBy, $"Could not parse days value");
+					return true;
+				}
+			} else {
+				Chat.Send(causedBy, "Syntax: /inactive {days}");
+				return true;
+			}
+
+			string resultMsg = "";
+			int counter = 0;
+			foreach (KeyValuePair<Players.Player, int> entry in ActivityTracker.GetInactivePlayers(days)) {
+				Players.Player player = entry.Key;
+				int inactiveDays = entry.Value;
+				if (resultMsg.Length > 0) {
+					resultMsg += ", ";
+				}
+				resultMsg += $"{player.ID.ToStringReadable()}({inactiveDays})";
+				counter++;
+			}
+			if (counter == 0) {
+				resultMsg = "No inactive players found";
+			} else {
+				resultMsg += $". In total {counter} players";
+			}
+			Chat.Send(causedBy, resultMsg);
+			return true;
+		}
+	}
 }
+

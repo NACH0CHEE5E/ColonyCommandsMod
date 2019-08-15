@@ -1,30 +1,23 @@
 ﻿using System.Text.RegularExpressions;
-using Pipliz.Chatting;
-using Permissions;
-using ChatCommands;
+using System.Collections.Generic;
+using Chatting;
+using Chatting.Commands;
 
-namespace ScarabolMods
+namespace ColonyCommands
 {
-  [ModLoader.ModManager]
+
   public class BanChatCommand : IChatCommand
   {
-    [ModLoader.ModCallback (ModLoader.EModCallbackType.AfterItemTypesDefined, "scarabol.commands.ban.registercommand")]
-    public static void AfterItemTypesDefined ()
-    {
-      CommandManager.RegisterCommand (new BanChatCommand ());
-    }
 
-    public bool IsCommand (string chat)
+    public bool TryDoCommand (Players.Player causedBy, string chattext, List<string> splits)
     {
-      return chat.Equals ("/ban") || chat.StartsWith ("/ban ");
-    }
-
-    public bool TryDoCommand (Players.Player causedBy, string chattext)
-    {
-      if (!PermissionsManager.CheckAndWarnPermission (causedBy, CommandsModEntries.MOD_PREFIX + "ban")) {
+	  if (!splits[0].Equals ("/ban")) {
+		return false;
+	}
+      if (!PermissionsManager.CheckAndWarnPermission (causedBy, AntiGrief.MOD_PREFIX + "ban")) {
         return true;
       }
-      var m = Regex.Match (chattext, @"/ban (?<targetplayername>['].+?[']|[^ ]+)");
+      var m = Regex.Match (chattext, @"/ban (?<targetplayername>['].+[']|[^ ]+)");
       if (!m.Success) {
         Chat.Send (causedBy, "Command didn't match, use /ban [targetplayername]");
         return true;
@@ -37,8 +30,9 @@ namespace ScarabolMods
         return true;
       }
       Chat.Send (targetPlayer, "<color=red>You were banned from the server</color>");
-      Chat.SendToAll ($"{targetPlayer.Name} is banned by {causedBy.Name}");
+      Chat.SendToConnected ($"{targetPlayer.Name} is banned by {causedBy.Name}");
       BlackAndWhitelisting.AddBlackList (targetPlayer.ID.steamID.m_SteamID);
+      BlackAndWhitelisting.Reload();
       Players.Disconnect (targetPlayer);
       return true;
     }
